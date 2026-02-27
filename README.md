@@ -7,20 +7,20 @@ ZenTao CLI for products + bugs.
 Global install (recommended):
 
 ```bash
-pnpm i -g @leeguoo/zentao-mcp
+pnpm i -g @sanmu2018/zentao-mcp
 ```
 
 If you don't have pnpm:
 
 ```bash
 npm i -g pnpm
-pnpm i -g @leeguoo/zentao-mcp
+pnpm i -g @sanmu2018/zentao-mcp
 ```
 
 Or use without installing:
 
 ```bash
-npx -y @leeguoo/zentao-mcp --help
+npx -y @sanmu2018/zentao-mcp --help
 ```
 
 This installs the `zentao` command (and keeps `zentao-mcp` as a compatibility alias).
