@@ -7,6 +7,9 @@ import { runRelease } from "./commands/release.js";
 import { runProducts } from "./commands/products.js";
 import { runBugs } from "./commands/bugs.js";
 import { runBug } from "./commands/bug.js";
+import { runExecutions } from "./commands/executions.js";
+import { runStories } from "./commands/stories.js";
+import { runTasks } from "./commands/tasks.js";
 import { runLogin } from "./commands/login.js";
 import { runWhoami } from "./commands/whoami.js";
 
@@ -57,6 +60,21 @@ try {
 
   if (command === "bug") {
     await runBug({ argv: argvWithoutCommand, env: process.env });
+    process.exit(0);
+  }
+
+  if (command === "executions") {
+    await runExecutions({ argv: argvWithoutCommand, env: process.env });
+    process.exit(0);
+  }
+
+  if (command === "stories") {
+    await runStories({ argv: argvWithoutCommand, env: process.env });
+    process.exit(0);
+  }
+
+  if (command === "tasks") {
+    await runTasks({ argv: argvWithoutCommand, env: process.env });
     process.exit(0);
   }
 

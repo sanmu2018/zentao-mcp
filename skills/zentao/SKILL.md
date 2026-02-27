@@ -58,6 +58,42 @@ If login returns HTML 404, the base path is likely missing `/zentao`.
 
 ## Commands
 
+List executions/sprints:
+
+```bash
+zentao executions list [--project 1] [--status all|undone|done|closed]
+```
+
+List stories for an execution:
+
+```bash
+zentao stories list --execution 10
+```
+
+List tasks for an execution:
+
+```bash
+zentao tasks list --execution 10
+```
+
+List my tasks:
+
+```bash
+zentao tasks mine [--account leo] [--status wait,doing] [--include-details]
+```
+
+Start a task:
+
+```bash
+zentao tasks start --id 123 [--consumed 2] [--left 5] [--comment "Started work"]
+```
+
+Finish a task:
+
+```bash
+zentao tasks finish --id 123 [--currentConsumed 2] [--comment "Finished implementation"]
+```
+
 List products (simple by default):
 
 ```bash

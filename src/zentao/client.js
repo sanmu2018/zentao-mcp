@@ -299,6 +299,135 @@ export class ZentaoClient {
       bugs: includeDetails ? bugs : [],
     });
   }
+
+  async listExecutions({ project, status, page, limit }) {
+    const query = {
+      page: toInt(page, 1),
+      limit: toInt(limit, 1000),
+    };
+    if (project) query.project = project;
+    if (status) query.status = status;
+
+    const payload = await this.request({
+      method: "GET",
+      path: "/api.php/v1/executions",
+      query,
+    });
+
+    if (payload.error) return normalizeError(payload.error, payload);
+    return normalizeResult(payload);
+  }
+
+  async listStories({ execution, page, limit }) {
+    if (!execution) throw new Error("execution is required");
+
+    const payload = await this.request({
+      method: "GET",
+      path: `/api.php/v1/executions/${execution}/stories`,
+      query: {
+        page: toInt(page, 1),
+        limit: toInt(limit, 100),
+      },
+    });
+
+    if (payload.error) return normalizeError(payload.error, payload);
+    return normalizeResult(payload);
+  }
+
+  async listTasks({ execution, page, limit }) {
+    if (!execution) throw new Error("execution is required");
+
+    const payload = await this.request({
+      method: "GET",
+      path: `/api.php/v1/executions/${execution}/tasks`,
+      query: {
+        page: toInt(page, 1),
+        limit: toInt(limit, 100),
+      },
+    });
+
+    if (payload.error) return normalizeError(payload.error, payload);
+    return normalizeResult(payload);
+  }
+
+  async tasksMine({ account, status, includeDetails }) {
+    const matchAccount = normalizeAccountValue(account || this.account);
+    const rawStatus = status ?? "all";
+    const statusList = Array.isArray(rawStatus) ? rawStatus : String(rawStatus).split(/[|,]/);
+    const statusSet = new Set(
+      statusList.map((item) => String(item).trim().toLowerCase()).filter(Boolean)
+    );
+    const allowAllStatus = statusSet.has("all") || statusSet.size === 0;
+
+    const query = { search: 1, limit: 1000 };
+    if (matchAccount) query.assignedTo = matchAccount;
+
+    const payload = await this.request({
+      method: "GET",
+      path: "/api.php/v1/tasks",
+      query,
+    });
+
+    if (payload.error) return normalizeError(payload.error, payload);
+
+    let tasks = Array.isArray(payload.tasks) ? payload.tasks : (payload.data?.tasks || []);
+
+    if (!allowAllStatus) {
+      tasks = tasks.filter((t) => statusSet.has(String(t.status || "").trim().toLowerCase()));
+    }
+
+    if (!includeDetails) {
+      tasks = tasks.map((t) => ({
+        id: t.id,
+        name: t.name,
+        status: t.status,
+        assignedTo: t.assignedTo,
+        execution: t.execution,
+        pri: t.pri,
+      }));
+    }
+
+    return normalizeResult({
+      account: matchAccount,
+      status: allowAllStatus ? "all" : Array.from(statusSet),
+      total: tasks.length,
+      tasks,
+    });
+  }
+
+  async startTask({ id, consumed, left, comment }) {
+    if (!id) throw new Error("task id is required");
+    const payload = await this.request({
+      method: "POST",
+      path: `/api.php/v1/tasks/${id}/start`,
+      body: {
+        consumed: consumed !== undefined ? Number(consumed) : undefined,
+        left: left !== undefined ? Number(left) : undefined,
+        comment: comment || undefined,
+      },
+    });
+    if (payload.error) return normalizeError(payload.error, payload);
+    return normalizeResult(payload);
+  }
+
+  async finishTask({ id, currentConsumed, comment }) {
+    if (!id) throw new Error("task id is required");
+    // The ZenTao v1 API for finishing a task requires currentConsumed, realStarted, finishedDate.
+    // However, if we don't supply realStarted and finishedDate, the PHP logic handles them internally. 
+    // We only definitely need to provide currentConsumed to avoid strict requirements failing.
+    const body = {
+      currentConsumed: currentConsumed !== undefined ? Number(currentConsumed) : 0,
+    };
+    if (comment) body.comment = comment;
+
+    const payload = await this.request({
+      method: "POST",
+      path: `/api.php/v1/tasks/${id}/finish`,
+      body,
+    });
+    if (payload.error) return normalizeError(payload.error, payload);
+    return normalizeResult(payload);
+  }
 }
 
 export function createClientFromCli({ argv, env }) {

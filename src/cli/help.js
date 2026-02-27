@@ -5,6 +5,12 @@ export function printRootHelp() {
   process.stdout.write(`  zentao login [--zentao-url ... --zentao-account ... --zentao-password ...] [--yes]\n`);
   process.stdout.write(`  zentao whoami\n`);
   process.stdout.write(`  zentao products list [--page N] [--limit N] [--json]\n`);
+  process.stdout.write(`  zentao executions list [--project <id>] [--status ...] [--page N] [--limit N] [--json]\n`);
+  process.stdout.write(`  zentao stories list --execution <id> [--page N] [--limit N] [--json]\n`);
+  process.stdout.write(`  zentao tasks list --execution <id> [--page N] [--limit N] [--json]\n`);
+  process.stdout.write(`  zentao tasks mine [--status ...] [--account ...] [--include-details] [--json]\n`);
+  process.stdout.write(`  zentao tasks start --id <taskId> [--consumed N] [--left N]\n`);
+  process.stdout.write(`  zentao tasks finish --id <taskId> [--currentConsumed N]\n`);
   process.stdout.write(`  zentao bugs list --product <id> [--page N] [--limit N] [--json]\n`);
   process.stdout.write(`  zentao bug get --id <bugId> [--json]\n`);
   process.stdout.write(`  zentao bugs mine [--scope ...] [--status ...] [--include-details] [--json]\n`);
@@ -19,6 +25,9 @@ export function printRootHelp() {
   process.stdout.write(`  login               save credentials locally\n`);
   process.stdout.write(`  whoami              show current account\n`);
   process.stdout.write(`  products            ZenTao products\n`);
+  process.stdout.write(`  executions          ZenTao executions/sprints\n`);
+  process.stdout.write(`  stories             ZenTao stories\n`);
+  process.stdout.write(`  tasks               ZenTao tasks\n`);
   process.stdout.write(`  bugs                ZenTao bugs\n`);
   process.stdout.write(`  bug                 ZenTao bug\n`);
   process.stdout.write(`  self-test           run a basic API roundtrip\n`);
