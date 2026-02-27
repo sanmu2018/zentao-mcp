@@ -397,12 +397,23 @@ export class ZentaoClient {
 
   async startTask({ id, consumed, left, comment }) {
     if (!id) throw new Error("task id is required");
+
+    // Fetch the task first to retain assignedTo, consumed, left, etc.
+    const taskRes = await this.getTask({ id });
+    if (taskRes.status === 0 && taskRes.error) return taskRes;
+    const task = taskRes.result || {};
+
+    const assignedTo = typeof task.assignedTo === 'object' && task.assignedTo !== null
+      ? task.assignedTo.account
+      : (task.assignedTo || this.account);
+
     const payload = await this.request({
       method: "POST",
       path: `/api.php/v1/tasks/${id}/start`,
       body: {
-        consumed: consumed !== undefined ? Number(consumed) : undefined,
-        left: left !== undefined ? Number(left) : undefined,
+        assignedTo,
+        consumed: consumed !== undefined ? Number(consumed) : (task.consumed || 0),
+        left: left !== undefined ? Number(left) : (task.left || 0),
         comment: comment || undefined,
       },
     });
@@ -422,10 +433,31 @@ export class ZentaoClient {
 
   async finishTask({ id, currentConsumed, comment }) {
     if (!id) throw new Error("task id is required");
-    // The ZenTao v1 API for finishing a task requires currentConsumed, realStarted, finishedDate.
-    // However, if we don't supply realStarted and finishedDate, the PHP logic handles them internally. 
-    // We only definitely need to provide currentConsumed to avoid strict requirements failing.
+
+    // Fetch the task first to retain assignedTo and realStarted.
+    const taskRes = await this.getTask({ id });
+    if (taskRes.status === 0 && taskRes.error) return taskRes;
+    const task = taskRes.result || {};
+
+    const assignedTo = typeof task.assignedTo === 'object' && task.assignedTo !== null
+      ? task.assignedTo.account
+      : (task.assignedTo || this.account);
+
+    const formatDateTime = (d) => {
+      const pad = (n) => String(n).padStart(2, "0");
+      return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
+    };
+
+    const now = formatDateTime(new Date());
+    let realStarted = task.realStarted;
+    if (!realStarted || realStarted === '0000-00-00 00:00:00' || realStarted === '0000-00-00') {
+      realStarted = now;
+    }
+
     const body = {
+      assignedTo,
+      realStarted,
+      finishedDate: now,
       currentConsumed: currentConsumed !== undefined ? Number(currentConsumed) : 0,
     };
     if (comment) body.comment = comment;
