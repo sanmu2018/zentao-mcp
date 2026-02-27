@@ -1,5 +1,5 @@
 {
-  "name": "@leeguoo/zentao-mcp",
+  "name": "@sanmu2018/zentao-mcp",
   "version": "0.5.6",
   "description": "ZenTao CLI for products + bugs",
   "keywords": [
@@ -29,12 +29,12 @@
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/leeguooooo/zentao-mcp"
+    "url": "https://github.com/sanmu2018/zentao-mcp"
   },
   "bugs": {
-    "url": "https://github.com/leeguooooo/zentao-mcp/issues"
+    "url": "https://github.com/sanmu2018/zentao-mcp/issues"
   },
-  "homepage": "https://github.com/leeguooooo/zentao-mcp#readme",
+  "homepage": "https://github.com/sanmu2018/zentao-mcp#readme",
   "scripts": {
     "start": "node src/index.js",
     "self-test": "node src/index.js self-test",

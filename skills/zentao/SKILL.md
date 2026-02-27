@@ -1,8 +1,8 @@
 ---
 name: zentao
 description: Use the zentao CLI to login and query ZenTao products and bugs. ZENTAO_URL usually includes /zentao.
-homepage: https://www.npmjs.com/package/@leeguoo/zentao-mcp
-metadata: {"openclaw":{"emoji":"🐞","install":[{"id":"node","kind":"node","package":"@leeguoo/zentao-mcp","bins":["zentao"],"label":"Install zentao CLI (node)"}]}}
+homepage: https://www.npmjs.com/package/@sanmu2018/zentao-mcp
+metadata: {"openclaw":{"emoji":"🐞","install":[{"id":"node","kind":"node","package":"@sanmu2018/zentao-mcp","bins":["zentao"],"label":"Install zentao CLI (node)"}]}}
 ---
 
 # zentao (ZenTao CLI)
@@ -22,14 +22,14 @@ Use this skill when the user asks to:
 To install globally with pnpm:
 
 ```bash
-pnpm i -g @leeguoo/zentao-mcp
+pnpm i -g @sanmu2018/zentao-mcp
 ```
 
 If pnpm is not installed:
 
 ```bash
 npm i -g pnpm
-pnpm i -g @leeguoo/zentao-mcp
+pnpm i -g @sanmu2018/zentao-mcp
 ```
 
 ## Login workflow
