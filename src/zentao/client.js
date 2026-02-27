@@ -410,6 +410,16 @@ export class ZentaoClient {
     return normalizeResult(payload);
   }
 
+  async getTask({ id }) {
+    if (!id) throw new Error("task id is required");
+    const payload = await this.request({
+      method: "GET",
+      path: `/api.php/v1/tasks/${id}`,
+    });
+    if (payload.error) return normalizeError(payload.error, payload);
+    return normalizeResult(payload);
+  }
+
   async finishTask({ id, currentConsumed, comment }) {
     if (!id) throw new Error("task id is required");
     // The ZenTao v1 API for finishing a task requires currentConsumed, realStarted, finishedDate.

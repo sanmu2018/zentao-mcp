@@ -9,6 +9,7 @@ export function printRootHelp() {
   process.stdout.write(`  zentao stories list --execution <id> [--page N] [--limit N] [--json]\n`);
   process.stdout.write(`  zentao tasks list --execution <id> [--page N] [--limit N] [--json]\n`);
   process.stdout.write(`  zentao tasks mine [--status ...] [--account ...] [--include-details] [--json]\n`);
+  process.stdout.write(`  zentao tasks get --id <taskId> [--json]\n`);
   process.stdout.write(`  zentao tasks start --id <taskId> [--consumed N] [--left N]\n`);
   process.stdout.write(`  zentao tasks finish --id <taskId> [--currentConsumed N]\n`);
   process.stdout.write(`  zentao bugs list --product <id> [--page N] [--limit N] [--json]\n`);

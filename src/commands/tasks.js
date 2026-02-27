@@ -7,12 +7,13 @@ function printHelp() {
     process.stdout.write(`Usage:\n`);
     process.stdout.write(`  zentao tasks list --execution <id> [--page N] [--limit N] [--json]\n`);
     process.stdout.write(`  zentao tasks mine [--status ...] [--account ...] [--include-details] [--json]\n`);
+    process.stdout.write(`  zentao tasks get --id <id> [--json]\n`);
     process.stdout.write(`  zentao tasks start --id <id> [--consumed N] [--left N] [--comment text] [--json]\n`);
     process.stdout.write(`  zentao tasks finish --id <id> [--currentConsumed N] [--comment text] [--json]\n`);
     process.stdout.write(`\n`);
     process.stdout.write(`Options:\n`);
     process.stdout.write(`  --execution          execution/sprint id (required for list)\n`);
-    process.stdout.write(`  --id                 task id (required for start/finish)\n`);
+    process.stdout.write(`  --id                 task id (required for get/start/finish)\n`);
     process.stdout.write(`  --status             filter by status (e.g. wait, doing, done)\n`);
     process.stdout.write(`  --account            filter by assignedTo account (default: current login user)\n`);
     process.stdout.write(`  --include-details    include task details in output (for mine)\n`);
@@ -136,6 +137,40 @@ export async function runTasks({ argv = [], env = process.env } = {}) {
             process.stdout.write(`Task ${cliArgs.id} started successfully.\n`);
         } else {
             process.stdout.write(`Failed to start task ${cliArgs.id}: ${result.msg}\n`);
+        }
+        return;
+    }
+
+    if (sub === "get") {
+        if (!cliArgs.id) {
+            throw new Error(`--id is required. Usage: zentao tasks get --id <id>`);
+        }
+
+        const result = await api.getTask({
+            id: cliArgs.id,
+        });
+
+        if (cliArgs.json) {
+            process.stdout.write(`${JSON.stringify(result, null, 2)}\n`);
+            return;
+        }
+
+        if (result.status === 1 && result.result) {
+            const task = result.result;
+            process.stdout.write(`Task ID: ${task.id}\n`);
+            process.stdout.write(`Name: ${task.name}\n`);
+            process.stdout.write(`Status: ${task.status}\n`);
+            process.stdout.write(`Assigned To: ${typeof task.assignedTo === 'object' && task.assignedTo !== null ? (task.assignedTo.realname || task.assignedTo.account) : task.assignedTo}\n`);
+            process.stdout.write(`Pri: ${task.pri}\n`);
+            process.stdout.write(`Estimate: ${task.estimate}\n`);
+            process.stdout.write(`Consumed: ${task.consumed}\n`);
+            process.stdout.write(`Left: ${task.left}\n`);
+
+            // Remove HTML tags for cleaner CLI output
+            const cleanDesc = (task.desc || '').replace(/<[^>]*>?/gm, '');
+            process.stdout.write(`Description:\n${cleanDesc || '(None)'}\n`);
+        } else {
+            process.stdout.write(`Failed to get task ${cliArgs.id}: ${result.msg}\n`);
         }
         return;
     }

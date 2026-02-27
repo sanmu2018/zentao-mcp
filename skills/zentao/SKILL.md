@@ -82,6 +82,12 @@ List my tasks:
 zentao tasks mine [--account leo] [--status wait,doing] [--include-details]
 ```
 
+Get a specific task:
+
+```bash
+zentao tasks get --id 123
+```
+
 Start a task:
 
 ```bash
