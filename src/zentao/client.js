@@ -431,6 +431,30 @@ export class ZentaoClient {
     return normalizeResult(payload);
   }
 
+  async createTask({ execution, name, type, assignedTo, story, estimate, desc, pri, estStarted, deadline }) {
+    if (!execution) throw new Error("execution is required");
+    if (!name) throw new Error("task name is required");
+
+    const payload = await this.request({
+      method: "POST",
+      path: `/api.php/v1/executions/${execution}/tasks`,
+      body: {
+        name,
+        type: type || "devel",
+        assignedTo: assignedTo || undefined,
+        story: story || undefined,
+        estimate: estimate !== undefined ? Number(estimate) : undefined,
+        desc: desc || undefined,
+        pri: pri !== undefined ? Number(pri) : 3,
+        estStarted: estStarted || undefined,
+        deadline: deadline || undefined,
+      },
+    });
+
+    if (payload.error) return normalizeError(payload.error, payload);
+    return normalizeResult(payload);
+  }
+
   async finishTask({ id, currentConsumed, comment }) {
     if (!id) throw new Error("task id is required");
 

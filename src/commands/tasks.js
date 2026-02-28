@@ -8,11 +8,21 @@ function printHelp() {
     process.stdout.write(`  zentao tasks list --execution <id> [--page N] [--limit N] [--json]\n`);
     process.stdout.write(`  zentao tasks mine [--status ...] [--account ...] [--include-details] [--json]\n`);
     process.stdout.write(`  zentao tasks get --id <id> [--json]\n`);
+    process.stdout.write(`  zentao tasks create --execution <id> --name <name> [--type devel|test|...] [--assignedTo account] [--story id] [--estimate N] [--desc text] [--pri N] [--estStarted YYYY-MM-DD] [--deadline YYYY-MM-DD] [--json]\n`);
     process.stdout.write(`  zentao tasks start --id <id> [--consumed N] [--left N] [--comment text] [--json]\n`);
     process.stdout.write(`  zentao tasks finish --id <id> [--currentConsumed N] [--comment text] [--json]\n`);
     process.stdout.write(`\n`);
     process.stdout.write(`Options:\n`);
-    process.stdout.write(`  --execution          execution/sprint id (required for list)\n`);
+    process.stdout.write(`  --execution          execution/sprint id (required for list/create)\n`);
+    process.stdout.write(`  --name               task name (required for create)\n`);
+    process.stdout.write(`  --type               task type: devel, test, design, etc. (default: devel)\n`);
+    process.stdout.write(`  --assignedTo         account to assign the task to\n`);
+    process.stdout.write(`  --story              story id to link\n`);
+    process.stdout.write(`  --estimate           estimated hours\n`);
+    process.stdout.write(`  --desc               task description\n`);
+    process.stdout.write(`  --pri                priority (1-4, default: 3)\n`);
+    process.stdout.write(`  --estStarted         estimated start date (YYYY-MM-DD)\n`);
+    process.stdout.write(`  --deadline           deadline (YYYY-MM-DD)\n`);
     process.stdout.write(`  --id                 task id (required for get/start/finish)\n`);
     process.stdout.write(`  --status             filter by status (e.g. wait, doing, done)\n`);
     process.stdout.write(`  --account            filter by assignedTo account (default: current login user)\n`);
@@ -82,6 +92,40 @@ export async function runTasks({ argv = [], env = process.env } = {}) {
         }
 
         process.stdout.write(formatTasksSimple(tasks));
+        return;
+    }
+
+    if (sub === "create") {
+        if (!cliArgs.execution) {
+            throw new Error(`--execution is required. Usage: zentao tasks create --execution <id> --name <name>`);
+        }
+        if (!cliArgs.name) {
+            throw new Error(`--name is required. Usage: zentao tasks create --execution <id> --name <name>`);
+        }
+
+        const result = await api.createTask({
+            execution: cliArgs.execution,
+            name: cliArgs.name,
+            type: cliArgs.type,
+            assignedTo: cliArgs.assignedTo,
+            story: cliArgs.story,
+            estimate: cliArgs.estimate,
+            desc: cliArgs.desc,
+            pri: cliArgs.pri,
+            estStarted: cliArgs.estStarted,
+            deadline: cliArgs.deadline,
+        });
+
+        if (cliArgs.json) {
+            process.stdout.write(`${JSON.stringify(result, null, 2)}\n`);
+            return;
+        }
+
+        if (result.status === 1) {
+            process.stdout.write(`Task created successfully. ID: ${result.result?.id || "(unknown)"}\n`);
+        } else {
+            process.stdout.write(`Failed to create task: ${result.msg}\n`);
+        }
         return;
     }
 

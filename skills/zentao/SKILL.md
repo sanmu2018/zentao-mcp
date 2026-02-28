@@ -76,6 +76,12 @@ List tasks for an execution:
 zentao tasks list --execution 10
 ```
 
+Create a task:
+
+```bash
+zentao tasks create --execution <id> --name "Task name" [--assignedTo account] [--estimate 2] [--desc "Details"] [--estStarted YYYY-MM-DD] [--deadline YYYY-MM-DD]
+```
+
 List my tasks:
 
 ```bash

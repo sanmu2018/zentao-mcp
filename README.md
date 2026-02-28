@@ -53,55 +53,106 @@ If you see `404 Not Found` when logging in, your base path is likely missing `/z
 
 ## Commands
 
-List products:
+Most commands support `--json` for raw output.
+
+### Products
+
+List all products:
 
 ```bash
 zentao products list
 ```
 
-Full JSON output:
+### Executions (Sprints)
+
+List executions:
 
 ```bash
-zentao products list --json
+zentao executions list [--project <id>] [--status all|undone|done|closed]
 ```
+
+### Stories
+
+List stories for an execution:
+
+```bash
+zentao stories list --execution <id>
+```
+
+### Tasks
+
+List tasks for an execution:
+
+```bash
+zentao tasks list --execution <id>
+```
+
+Create a task:
+
+```bash
+zentao tasks create --execution <id> --name "Task name" [--assignedTo account] [--estimate 2] [--desc "Details"] [--estStarted YYYY-MM-DD] [--deadline YYYY-MM-DD]
+```
+
+Get task details:
+
+```bash
+zentao tasks get --id <id>
+```
+
+List my tasks:
+
+```bash
+zentao tasks mine [--status <status>] [--account <account>] [--include-details]
+```
+
+Manage tasks:
+
+```bash
+# Start a task
+zentao tasks start --id <id> [--consumed <hours>] [--left <hours>] [--comment <text>]
+
+# Finish a task
+zentao tasks finish --id <id> [--currentConsumed <hours>] [--comment <text>]
+```
+
+### Bugs
 
 List bugs for a product:
 
 ```bash
-zentao bugs list --product 1
-```
-
-Full JSON output:
-
-```bash
-zentao bugs list --product 1 --json
+zentao bugs list --product <id>
 ```
 
 Get bug details:
 
 ```bash
-zentao bug get --id 123
-```
-
-Full JSON output:
-
-```bash
-zentao bug get --id 123 --json
+zentao bug get --id <id>
 ```
 
 List my bugs:
 
 ```bash
-zentao bugs mine --scope assigned --status active
+# Basic summary
+zentao bugs mine
+
+# Detailed list with status filtering
+zentao bugs mine --status active --include-details
 ```
 
-Full JSON output:
+Supported flags for `bugs mine`:
+- `--scope`: `assigned`, `opened`, `resolved`, `all`
+- `--status`: `active`, `resolved`, `closed`, `all`
+- `--include-details`: Show full bug list table
+
+### System & Auth
+
+Check current user:
 
 ```bash
-zentao bugs mine --scope assigned --status active --json
+zentao whoami
 ```
 
-Self test:
+Self-test connection:
 
 ```bash
 zentao self-test
