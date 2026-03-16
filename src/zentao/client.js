@@ -11,6 +11,70 @@ function toInt(value, fallback) {
   return Number.isNaN(parsed) ? fallback : parsed;
 }
 
+function hasOwn(obj, key) {
+  return Object.prototype.hasOwnProperty.call(obj, key);
+}
+
+function toNumberIfDefined(value) {
+  if (value === undefined || value === null || value === "") return value;
+  return Number(value);
+}
+
+function toBooleanIfDefined(value) {
+  if (value === undefined || value === null || value === "") return value;
+  if (typeof value === "boolean") return value;
+  const normalized = String(value).trim().toLowerCase();
+  if (normalized === "1" || normalized === "true" || normalized === "yes") return true;
+  if (normalized === "0" || normalized === "false" || normalized === "no") return false;
+  throw new Error(`Invalid boolean value: ${value}`);
+}
+
+function buildTaskPayload(input = {}) {
+  const body = {};
+  const numericFields = new Set([
+    "story",
+    "parent",
+    "execution",
+    "module",
+    "pri",
+    "estimate",
+    "left",
+    "consumed",
+  ]);
+  const passthroughFields = [
+    "name",
+    "type",
+    "mode",
+    "desc",
+    "assignedTo",
+    "closedReason",
+    "status",
+    "estStarted",
+    "deadline",
+    "uid",
+    "mailto",
+    "team",
+    "teamEstimate",
+    "teamConsumed",
+    "teamLeft",
+    "teamSource",
+  ];
+
+  for (const field of passthroughFields) {
+    if (hasOwn(input, field)) body[field] = input[field];
+  }
+
+  for (const field of numericFields) {
+    if (hasOwn(input, field)) body[field] = toNumberIfDefined(input[field]);
+  }
+
+  if (hasOwn(input, "multiple")) {
+    body.multiple = toBooleanIfDefined(input.multiple);
+  }
+
+  return body;
+}
+
 export function normalizeResult(payload) {
   return { status: 1, msg: "success", result: payload };
 }
@@ -438,17 +502,30 @@ export class ZentaoClient {
     const payload = await this.request({
       method: "POST",
       path: `/api.php/v1/executions/${execution}/tasks`,
-      body: {
+      body: buildTaskPayload({
         name,
         type: type || "devel",
         assignedTo: assignedTo || undefined,
-        story: story || undefined,
+        story: story !== undefined ? story : undefined,
         estimate: estimate !== undefined ? Number(estimate) : undefined,
         desc: desc || undefined,
         pri: pri !== undefined ? Number(pri) : 3,
         estStarted: estStarted || undefined,
         deadline: deadline || undefined,
-      },
+      }),
+    });
+
+    if (payload.error) return normalizeError(payload.error, payload);
+    return normalizeResult(payload);
+  }
+
+  async updateTask({ id, ...changes }) {
+    if (!id) throw new Error("task id is required");
+
+    const payload = await this.request({
+      method: "PUT",
+      path: `/api.php/v1/tasks/${id}`,
+      body: buildTaskPayload(changes),
     });
 
     if (payload.error) return normalizeError(payload.error, payload);

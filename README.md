@@ -93,6 +93,12 @@ Create a task:
 zentao tasks create --execution <id> --name "Task name" [--assignedTo account] [--estimate 2] [--desc "Details"] [--estStarted YYYY-MM-DD] [--deadline YYYY-MM-DD]
 ```
 
+Update a task:
+
+```bash
+zentao tasks update --id <id> [--name "New task name"] [--assignedTo account] [--status doing] [--estimate 3] [--left 1] [--deadline YYYY-MM-DD]
+```
+
 Get task details:
 
 ```bash

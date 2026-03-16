@@ -151,3 +151,102 @@ test("formatBugsMineSimple prints summary", () => {
   assert.ok(out.includes("total\t2"));
   assert.ok(out.includes("1\tP1\t2\t10"));
 });
+
+test("ZentaoClient updateTask uses PUT task endpoint with typed payload", async () => {
+  const calls = [];
+
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = async (url, options) => {
+    calls.push({ url: String(url), options });
+
+    if (String(url).endsWith("/api.php/v1/tokens")) {
+      return {
+        text: async () => JSON.stringify({ token: "t_update" }),
+      };
+    }
+
+    if (String(url).includes("/api.php/v1/tasks/123")) {
+      return {
+        text: async () =>
+          JSON.stringify({
+            id: 123,
+            name: "Renamed task",
+            status: "doing",
+          }),
+      };
+    }
+
+    return {
+      text: async () => JSON.stringify({ error: "unexpected" }),
+    };
+  };
+
+  try {
+    const client = new ZentaoClient({
+      baseUrl: "https://example.com/zentao",
+      account: "leo",
+      password: "pw",
+    });
+
+    const result = await client.updateTask({
+      id: 123,
+      name: "Renamed task",
+      assignedTo: "tom",
+      story: "0",
+      parent: "88",
+      execution: "9",
+      module: "7",
+      pri: "2",
+      estimate: "3.5",
+      left: "1.5",
+      consumed: "2",
+      status: "doing",
+      desc: "updated",
+      estStarted: "2026-03-16",
+      deadline: "2026-03-20",
+      closedReason: "done",
+      multiple: "false",
+      mailto: ["amy", "bob"],
+      team: ["tom", "jane"],
+      teamEstimate: [2, 3],
+      teamConsumed: [1, 0.5],
+      teamLeft: [1, 2.5],
+      teamSource: ["", ""],
+      uid: "u_1",
+    });
+
+    assert.equal(result.status, 1);
+    assert.equal(result.result?.id, 123);
+    assert.equal(calls.length, 2);
+    assert.equal(calls[1].options?.method, "PUT");
+    assert.ok(calls[1].url.includes("/api.php/v1/tasks/123"));
+    assert.equal(calls[1].options?.headers?.Token, "t_update");
+    assert.deepEqual(JSON.parse(calls[1].options?.body), {
+      name: "Renamed task",
+      assignedTo: "tom",
+      desc: "updated",
+      closedReason: "done",
+      status: "doing",
+      estStarted: "2026-03-16",
+      deadline: "2026-03-20",
+      uid: "u_1",
+      mailto: ["amy", "bob"],
+      team: ["tom", "jane"],
+      teamEstimate: [2, 3],
+      teamConsumed: [1, 0.5],
+      teamLeft: [1, 2.5],
+      teamSource: ["", ""],
+      story: 0,
+      parent: 88,
+      execution: 9,
+      module: 7,
+      pri: 2,
+      estimate: 3.5,
+      left: 1.5,
+      consumed: 2,
+      multiple: false,
+    });
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});

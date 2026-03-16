@@ -2,6 +2,86 @@ import process from "node:process";
 import { extractCommand, hasHelpFlag, parseCliArgs } from "../cli/args.js";
 import { createClientFromCli } from "../zentao/client.js";
 
+function hasOwn(obj, key) {
+    return Object.prototype.hasOwnProperty.call(obj, key);
+}
+
+function parseBooleanFlag(value, flagName) {
+    if (value === true) return true;
+    if (typeof value === "boolean") return value;
+    const normalized = String(value).trim().toLowerCase();
+    if (normalized === "1" || normalized === "true" || normalized === "yes") return true;
+    if (normalized === "0" || normalized === "false" || normalized === "no") return false;
+    throw new Error(`Invalid boolean for --${flagName}: ${value}`);
+}
+
+function parseCsv(value, transform = (item) => item) {
+    if (Array.isArray(value)) return value.map(transform);
+    return String(value)
+        .split(",")
+        .map((item) => item.trim())
+        .filter(Boolean)
+        .map(transform);
+}
+
+function buildTaskUpdateInput(cliArgs) {
+    const update = {};
+    const scalarFlags = [
+        "name",
+        "type",
+        "mode",
+        "desc",
+        "assignedTo",
+        "story",
+        "parent",
+        "execution",
+        "module",
+        "pri",
+        "estimate",
+        "left",
+        "consumed",
+        "closedReason",
+        "status",
+        "estStarted",
+        "deadline",
+        "uid",
+    ];
+
+    for (const flag of scalarFlags) {
+        if (hasOwn(cliArgs, flag)) update[flag] = cliArgs[flag];
+    }
+
+    if (hasOwn(cliArgs, "multiple")) {
+        update.multiple = parseBooleanFlag(cliArgs.multiple, "multiple");
+    }
+
+    if (hasOwn(cliArgs, "mailto")) {
+        update.mailto = parseCsv(cliArgs.mailto);
+    }
+
+    if (hasOwn(cliArgs, "team")) {
+        update.team = parseCsv(cliArgs.team);
+    }
+
+    if (hasOwn(cliArgs, "teamEstimate")) {
+        update.teamEstimate = parseCsv(cliArgs.teamEstimate, Number);
+    }
+
+    if (hasOwn(cliArgs, "teamConsumed")) {
+        update.teamConsumed = parseCsv(cliArgs.teamConsumed, Number);
+    }
+
+    if (hasOwn(cliArgs, "teamLeft")) {
+        update.teamLeft = parseCsv(cliArgs.teamLeft, Number);
+    }
+
+    if (hasOwn(cliArgs, "teamSource")) {
+        update.teamSource = parseCsv(cliArgs.teamSource);
+    }
+
+    return update;
+}
+
 function printHelp() {
     process.stdout.write(`zentao tasks <subcommand>\n\n`);
     process.stdout.write(`Usage:\n`);
@@ -9,6 +89,7 @@ function printHelp() {
     process.stdout.write(`  zentao tasks mine [--status ...] [--account ...] [--include-details] [--json]\n`);
     process.stdout.write(`  zentao tasks get --id <id> [--json]\n`);
     process.stdout.write(`  zentao tasks create --execution <id> --name <name> [--type devel|test|...] [--assignedTo account] [--story id] [--estimate N] [--desc text] [--pri N] [--estStarted YYYY-MM-DD] [--deadline YYYY-MM-DD] [--json]\n`);
+    process.stdout.write(`  zentao tasks update --id <id> [--name <name>] [--assignedTo account] [--status wait|doing|done|...] [--estimate N] [--left N] [--deadline YYYY-MM-DD] [--json]\n`);
     process.stdout.write(`  zentao tasks start --id <id> [--consumed N] [--left N] [--comment text] [--json]\n`);
     process.stdout.write(`  zentao tasks finish --id <id> [--currentConsumed N] [--comment text] [--json]\n`);
     process.stdout.write(`\n`);
@@ -16,19 +97,31 @@ function printHelp() {
     process.stdout.write(`  --execution          execution/sprint id (required for list/create)\n`);
     process.stdout.write(`  --name               task name (required for create)\n`);
     process.stdout.write(`  --type               task type: devel, test, design, etc. (default: devel)\n`);
+    process.stdout.write(`  --mode               task mode, e.g. linear or multi\n`);
     process.stdout.write(`  --assignedTo         account to assign the task to\n`);
     process.stdout.write(`  --story              story id to link\n`);
+    process.stdout.write(`  --parent             parent task id\n`);
+    process.stdout.write(`  --module             module id\n`);
     process.stdout.write(`  --estimate           estimated hours\n`);
+    process.stdout.write(`  --left               estimated hours left\n`);
+    process.stdout.write(`  --consumed           consumed hours so far\n`);
     process.stdout.write(`  --desc               task description\n`);
     process.stdout.write(`  --pri                priority (1-4, default: 3)\n`);
+    process.stdout.write(`  --closedReason       close reason for status updates\n`);
     process.stdout.write(`  --estStarted         estimated start date (YYYY-MM-DD)\n`);
     process.stdout.write(`  --deadline           deadline (YYYY-MM-DD)\n`);
-    process.stdout.write(`  --id                 task id (required for get/start/finish)\n`);
+    process.stdout.write(`  --multiple           whether this is a multi-user task\n`);
+    process.stdout.write(`  --mailto             comma-separated mailto accounts\n`);
+    process.stdout.write(`  --team               comma-separated team accounts for multi-user task edits\n`);
+    process.stdout.write(`  --teamEstimate       comma-separated team estimate hours\n`);
+    process.stdout.write(`  --teamConsumed       comma-separated team consumed hours\n`);
+    process.stdout.write(`  --teamLeft           comma-separated team left hours\n`);
+    process.stdout.write(`  --teamSource         comma-separated team source values\n`);
+    process.stdout.write(`  --uid                batch update uid\n`);
+    process.stdout.write(`  --id                 task id (required for get/update/start/finish)\n`);
     process.stdout.write(`  --status             filter by status (e.g. wait, doing, done)\n`);
     process.stdout.write(`  --account            filter by assignedTo account (default: current login user)\n`);
     process.stdout.write(`  --include-details    include task details in output (for mine)\n`);
-    process.stdout.write(`  --consumed           consumed hours so far (for start)\n`);
-    process.stdout.write(`  --left               estimated hours left (for start)\n`);
     process.stdout.write(`  --currentConsumed    hours consumed since last log (for finish)\n`);
     process.stdout.write(`  --comment            comment about the action\n`);
     process.stdout.write(`  --json               print full JSON payload\n`);
@@ -125,6 +218,34 @@ export async function runTasks({ argv = [], env = process.env } = {}) {
             process.stdout.write(`Task created successfully. ID: ${result.result?.id || "(unknown)"}\n`);
         } else {
             process.stdout.write(`Failed to create task: ${result.msg}\n`);
+        }
+        return;
+    }
+
+    if (sub === "update" || sub === "edit") {
+        if (!cliArgs.id) {
+            throw new Error(`--id is required. Usage: zentao tasks update --id <id> [--name <name>]`);
+        }
+
+        const update = buildTaskUpdateInput(cliArgs);
+        if (Object.keys(update).length === 0) {
+            throw new Error(`At least one task field must be provided. Usage: zentao tasks update --id <id> --name <name>`);
+        }
+
+        const result = await api.updateTask({
+            id: cliArgs.id,
+            ...update,
+        });
+
+        if (cliArgs.json) {
+            process.stdout.write(`${JSON.stringify(result, null, 2)}\n`);
+            return;
+        }
+
+        if (result.status === 1) {
+            process.stdout.write(`Task ${cliArgs.id} updated successfully.\n`);
+        } else {
+            process.stdout.write(`Failed to update task ${cliArgs.id}: ${result.msg}\n`);
         }
         return;
     }
