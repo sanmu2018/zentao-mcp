@@ -32,6 +32,10 @@ function parseToml(text) {
       value = unescapeTomlString(value.slice(1, -1));
     } else if (value.startsWith("'") && value.endsWith("'")) {
       value = value.slice(1, -1);
+    } else if (value === "true") {
+      value = true;
+    } else if (value === "false") {
+      value = false;
     }
 
     if (key) out[key] = value;
@@ -46,6 +50,7 @@ function toToml(config) {
   if (config.zentaoUrl) lines.push(`zentaoUrl = "${escapeTomlString(config.zentaoUrl)}"`);
   if (config.zentaoAccount) lines.push(`zentaoAccount = "${escapeTomlString(config.zentaoAccount)}"`);
   if (config.zentaoPassword) lines.push(`zentaoPassword = "${escapeTomlString(config.zentaoPassword)}"`);
+  if (config.insecure === true) lines.push(`insecure = true`);
   lines.push("");
   return lines.join("\n");
 }

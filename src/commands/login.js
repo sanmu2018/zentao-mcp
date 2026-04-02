@@ -7,22 +7,37 @@ import { ZentaoClient } from "../zentao/client.js";
 function printHelp() {
   process.stdout.write(`zentao login - save credentials locally\n\n`);
   process.stdout.write(`Usage:\n`);
-  process.stdout.write(`  zentao login --zentao-url=... --zentao-account=... --zentao-password=... [--yes]\n`);
+  process.stdout.write(`  zentao login --zentao-url=... --zentao-account=... --zentao-password=... [--insecure] [--yes]\n`);
   process.stdout.write(`\n`);
   process.stdout.write(`Notes:\n`);
   process.stdout.write(`  Credentials are stored as plaintext TOML in your user config directory.\n`);
+  process.stdout.write(`  --insecure skips TLS certificate verification for self-signed HTTPS.\n`);
 }
 
-async function prompt(question) {
-  const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
+function createPrompter({ input = process.stdin, output = process.stdout } = {}) {
+  const rl = readline.createInterface({ input, output });
+
   try {
-    return await new Promise((resolve) => rl.question(question, resolve));
-  } finally {
+    return {
+      ask(question) {
+        return new Promise((resolve) => rl.question(question, resolve));
+      },
+      close() {
+        rl.close();
+      },
+    };
+  } catch (error) {
     rl.close();
+    throw error;
   }
 }
 
-export async function runLogin({ argv = [], env = process.env } = {}) {
+export async function runLogin({
+  argv = [],
+  env = process.env,
+  input = process.stdin,
+  output = process.stdout,
+} = {}) {
   if (hasHelpFlag(argv)) {
     printHelp();
     return;
@@ -33,17 +48,30 @@ export async function runLogin({ argv = [], env = process.env } = {}) {
   let baseUrl = getOption(cliArgs, env, "ZENTAO_URL", "zentao-url");
   let account = getOption(cliArgs, env, "ZENTAO_ACCOUNT", "zentao-account");
   let password = getOption(cliArgs, env, "ZENTAO_PASSWORD", "zentao-password");
+  const insecure = ZentaoClient.resolveInsecureOption({ cliArgs, env });
 
-  if (!baseUrl && !yes) baseUrl = String(await prompt("ZENTAO_URL: ")).trim();
-  if (!account && !yes) account = String(await prompt("ZENTAO_ACCOUNT: ")).trim();
-  if (!password && !yes) password = String(await prompt("ZENTAO_PASSWORD (echoed): ")).trim();
+  const needsInteractivePrompt = !yes && (!baseUrl || !account || !password);
+  if (needsInteractivePrompt && input.isTTY !== true) {
+    throw new Error("Interactive login requires a TTY. Provide flags/env when stdin is piped.");
+  }
+
+  if (needsInteractivePrompt) {
+    const prompter = createPrompter({ input, output });
+    try {
+      if (!baseUrl) baseUrl = String(await prompter.ask("ZENTAO_URL: ")).trim();
+      if (!account) account = String(await prompter.ask("ZENTAO_ACCOUNT: ")).trim();
+      if (!password) password = String(await prompter.ask("ZENTAO_PASSWORD (echoed): ")).trim();
+    } finally {
+      prompter.close();
+    }
+  }
 
   if (!baseUrl || !account || !password) {
     throw new Error("Missing credentials. Provide flags/env, or run interactively.");
   }
 
   // Verify credentials by requesting a token.
-  const client = new ZentaoClient({ baseUrl, account, password });
+  const client = new ZentaoClient({ baseUrl, account, password, insecure });
   await client.ensureToken();
 
   const filePath = saveConfig(
@@ -51,10 +79,14 @@ export async function runLogin({ argv = [], env = process.env } = {}) {
       zentaoUrl: baseUrl,
       zentaoAccount: account,
       zentaoPassword: password,
+      insecure,
     },
     { env }
   );
 
   process.stdout.write(`Logged in as ${account}\n`);
   process.stdout.write(`Saved to ${filePath}\n`);
+  if (insecure) {
+    process.stdout.write(`TLS certificate verification: skipped\n`);
+  }
 }

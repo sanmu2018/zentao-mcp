@@ -36,12 +36,14 @@ CLI arguments:
 - `--zentao-url` (e.g. `https://zentao.example.com/zentao`)
 - `--zentao-account`
 - `--zentao-password`
+- `--insecure` (skip HTTPS certificate verification)
 
 Environment variables:
 
 - `ZENTAO_URL`
 - `ZENTAO_ACCOUNT`
 - `ZENTAO_PASSWORD`
+- `ZENTAO_INSECURE=true`
 
 Tip: `ZENTAO_URL` should include the ZenTao base path (often `/zentao`).
 
@@ -172,6 +174,12 @@ Save credentials locally (stored as plaintext TOML under your user config direct
 zentao login --zentao-url=https://zentao.example.com/zentao --zentao-account=leo --zentao-password=***
 ```
 
+If your ZenTao instance uses a self-signed or privately issued HTTPS certificate:
+
+```bash
+zentao login --zentao-url=https://zentao.example.com/zentao --zentao-account=leo --zentao-password=*** --insecure
+```
+
 Config file:
 
 - `~/.config/zentao/config.toml` (or `$XDG_CONFIG_HOME/zentao/config.toml`)
@@ -185,8 +193,18 @@ zentao products list
 
 Troubleshooting login:
 
+- If you see `Missing credentials. Provide flags/env, or run interactively.`, the request has not been sent yet.
+  - It means one of `ZENTAO_URL / ZENTAO_ACCOUNT / ZENTAO_PASSWORD` is empty, most commonly an empty password input.
+- If you run in a wrapped terminal or piped stdin and interactive login is unstable, use flags/env instead of prompts:
+  - `zentao login --zentao-url=... --zentao-account=... --zentao-password=...`
 - If `Token response parse failed: <html>...404 Not Found...`, try:
   - `https://your-host/zentao` instead of `https://your-host/`
+- If you see HTTPS certificate errors, try:
+  - `zentao login ... --insecure`
+  - or set `ZENTAO_INSECURE=true`
+- If `curl` works but `zentao` reports `EAI_AGAIN` or `fetch failed`, your shell likely has proxy env vars but Node did not use them.
+  - Newer Node versions will be auto-relaunched with `--use-env-proxy`.
+  - Manual fallback: `NODE_USE_ENV_PROXY=1 zentao login ...`
 
 ## Release (maintainers)
 

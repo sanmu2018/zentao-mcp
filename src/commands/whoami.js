@@ -6,7 +6,7 @@ import { ZentaoClient, createClientFromCli } from "../zentao/client.js";
 function printHelp() {
   process.stdout.write(`zentao whoami - show current account\n\n`);
   process.stdout.write(`Usage:\n`);
-  process.stdout.write(`  zentao whoami\n`);
+  process.stdout.write(`  zentao whoami [--insecure]\n`);
   process.stdout.write(`\n`);
   process.stdout.write(`Reads credentials from flags/env, falling back to saved login config.\n`);
 }
@@ -28,5 +28,8 @@ export async function runWhoami({ argv = [], env = process.env } = {}) {
   process.stdout.write(`${account}\n`);
   if (stored && (stored.zentaoUrl || stored.zentaoAccount)) {
     process.stdout.write(`url: ${baseUrl}\n`);
+  }
+  if (client.insecure) {
+    process.stdout.write(`tls: insecure\n`);
   }
 }

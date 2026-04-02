@@ -25,9 +25,8 @@ export function hasHelpFlag(argv) {
 }
 
 export function getOption(cliArgs, env, envName, cliName) {
-  if (cliArgs[cliName]) return cliArgs[cliName];
-  const envValue = env[envName];
-  if (envValue) return envValue;
+  if (Object.prototype.hasOwnProperty.call(cliArgs, cliName)) return cliArgs[cliName];
+  if (Object.prototype.hasOwnProperty.call(env, envName)) return env[envName];
   return null;
 }
 

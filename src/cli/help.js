@@ -2,7 +2,7 @@ export function printRootHelp() {
   // Keep this plain text: many users run via npx and paste output.
   process.stdout.write(`zentao - ZenTao CLI\n\n`);
   process.stdout.write(`Usage:\n`);
-  process.stdout.write(`  zentao login [--zentao-url ... --zentao-account ... --zentao-password ...] [--yes]\n`);
+  process.stdout.write(`  zentao login [--zentao-url ... --zentao-account ... --zentao-password ...] [--insecure] [--yes]\n`);
   process.stdout.write(`  zentao whoami\n`);
   process.stdout.write(`  zentao products list [--page N] [--limit N] [--json]\n`);
   process.stdout.write(`  zentao executions list [--project <id>] [--status ...] [--page N] [--limit N] [--json]\n`);
@@ -23,6 +23,7 @@ export function printRootHelp() {
   process.stdout.write(`  --zentao-url        or env ZENTAO_URL\n`);
   process.stdout.write(`  --zentao-account    or env ZENTAO_ACCOUNT\n`);
   process.stdout.write(`  --zentao-password   or env ZENTAO_PASSWORD\n`);
+  process.stdout.write(`  --insecure          or env ZENTAO_INSECURE=true to skip TLS verify\n`);
   process.stdout.write(`  --help, -h          show help\n\n`);
   process.stdout.write(`Subcommands:\n`);
   process.stdout.write(`  login               save credentials locally\n`);
@@ -40,10 +41,11 @@ export function printRootHelp() {
 export function printSelfTestHelp() {
   process.stdout.write(`zentao self-test - verify API access\n\n`);
   process.stdout.write(`Usage:\n`);
-  process.stdout.write(`  zentao self-test --zentao-url=... --zentao-account=... --zentao-password=...\n`);
-  process.stdout.write(`  ZENTAO_URL=... ZENTAO_ACCOUNT=... ZENTAO_PASSWORD=... zentao self-test\n\n`);
+  process.stdout.write(`  zentao self-test --zentao-url=... --zentao-account=... --zentao-password=... [--insecure]\n`);
+  process.stdout.write(`  ZENTAO_URL=... ZENTAO_ACCOUNT=... ZENTAO_PASSWORD=... ZENTAO_INSECURE=true zentao self-test\n\n`);
   process.stdout.write(`Options:\n`);
   process.stdout.write(`  --expected N         exit 2 if total != N\n`);
+  process.stdout.write(`  --insecure          skip TLS certificate verification\n`);
   process.stdout.write(`  --help, -h           show help\n`);
 }
 

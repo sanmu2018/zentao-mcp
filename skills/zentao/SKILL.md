@@ -43,6 +43,16 @@ zentao login \
   --zentao-password="***"
 ```
 
+If the server uses a self-signed HTTPS certificate:
+
+```bash
+zentao login \
+  --zentao-url="https://zentao.example.com/zentao" \
+  --zentao-account="leo" \
+  --zentao-password="***" \
+  --insecure
+```
+
 2) This writes credentials to:
 
 - `~/.config/zentao/config.toml` (or `$XDG_CONFIG_HOME/zentao/config.toml`)

@@ -1,3 +1,4 @@
+import process from "node:process";
 import { getOption, parseCliArgs } from "../cli/args.js";
 import { loadConfig } from "../config/store.js";
 
@@ -111,12 +112,52 @@ function matchesAccount(value, matchAccount) {
   return candidates.includes(matchAccount);
 }
 
+function formatFetchError(error) {
+  const cause = error?.cause?.code || error?.cause?.message || error?.cause;
+  if (cause) {
+    return `${error.message}: ${cause}`;
+  }
+  return error?.message || String(error);
+}
+
 export class ZentaoClient {
-  constructor({ baseUrl, account, password }) {
+  constructor({ baseUrl, account, password, insecure = false }) {
     this.baseUrl = normalizeBaseUrl(baseUrl);
     this.account = account;
     this.password = password;
+    this.insecure = insecure;
     this.token = null;
+  }
+
+  static resolveInsecureOption({ cliArgs = {}, env = {}, stored = {} } = {}) {
+    if (hasOwn(cliArgs, "insecure")) {
+      return toBooleanIfDefined(cliArgs.insecure);
+    }
+    if (hasOwn(env, "ZENTAO_INSECURE")) {
+      return toBooleanIfDefined(env.ZENTAO_INSECURE);
+    }
+    if (hasOwn(stored, "insecure")) {
+      return toBooleanIfDefined(stored.insecure);
+    }
+    return false;
+  }
+
+  async fetchWithTlsPolicy(url, options) {
+    if (!this.insecure) {
+      return fetch(url, options);
+    }
+
+    const original = process.env.NODE_TLS_REJECT_UNAUTHORIZED;
+    process.env.NODE_TLS_REJECT_UNAUTHORIZED = "0";
+    try {
+      return await fetch(url, options);
+    } finally {
+      if (original === undefined) {
+        delete process.env.NODE_TLS_REJECT_UNAUTHORIZED;
+      } else {
+        process.env.NODE_TLS_REJECT_UNAUTHORIZED = original;
+      }
+    }
   }
 
   async ensureToken() {
@@ -126,14 +167,19 @@ export class ZentaoClient {
 
   async getToken() {
     const url = `${this.baseUrl}/api.php/v1/tokens`;
-    const res = await fetch(url, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        account: this.account,
-        password: this.password,
-      }),
-    });
+    let res;
+    try {
+      res = await this.fetchWithTlsPolicy(url, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          account: this.account,
+          password: this.password,
+        }),
+      });
+    } catch (error) {
+      throw new Error(`Token request network failed: ${formatFetchError(error)}`);
+    }
 
     const text = await res.text();
     let json;
@@ -174,7 +220,12 @@ export class ZentaoClient {
       options.body = JSON.stringify(body);
     }
 
-    const res = await fetch(url, options);
+    let res;
+    try {
+      res = await this.fetchWithTlsPolicy(url, options);
+    } catch (error) {
+      throw new Error(`Request network failed: ${formatFetchError(error)}`);
+    }
     const text = await res.text();
     let json;
     try {
@@ -587,10 +638,11 @@ export function createClientFromCli({ argv, env }) {
     getOption(cliArgs, env, "ZENTAO_PASSWORD", "zentao-password") ||
     stored.zentaoPassword ||
     null;
+  const insecure = ZentaoClient.resolveInsecureOption({ cliArgs, env, stored });
 
   if (!baseUrl) throw new Error("Missing ZENTAO_URL or --zentao-url");
   if (!account) throw new Error("Missing ZENTAO_ACCOUNT or --zentao-account");
   if (!password) throw new Error("Missing ZENTAO_PASSWORD or --zentao-password");
 
-  return new ZentaoClient({ baseUrl, account, password });
+  return new ZentaoClient({ baseUrl, account, password, insecure });
 }

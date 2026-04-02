@@ -1,13 +1,16 @@
 import assert from "node:assert/strict";
 import process from "node:process";
+import { PassThrough } from "node:stream";
 import test from "node:test";
 
 import { extractCommand, parseCliArgs } from "../src/cli/args.js";
+import { shouldRelaunchWithEnvProxy } from "../src/cli/env-proxy.js";
 import { createClientFromCli, ZentaoClient } from "../src/zentao/client.js";
 import { getConfigPath, loadConfig, saveConfig } from "../src/config/store.js";
 import { formatProductsSimple } from "../src/commands/products.js";
 import { formatBugsMineSimple, formatBugsSimple } from "../src/commands/bugs.js";
 import { formatBugSimple } from "../src/commands/bug.js";
+import { runLogin } from "../src/commands/login.js";
 
 test("extractCommand skips flag values", () => {
   const argv = [
@@ -51,12 +54,48 @@ test("createClientFromCli throws on missing auth", () => {
   );
 });
 
+test("runLogin requires TTY for interactive prompts", async () => {
+  const input = new PassThrough();
+  input.isTTY = false;
+  const output = new PassThrough();
+
+  await assert.rejects(
+    () => runLogin({ argv: [], env: {}, input, output }),
+    /Interactive login requires a TTY/
+  );
+});
+
+test("shouldRelaunchWithEnvProxy only when proxy env is present and not already enabled", () => {
+  assert.equal(shouldRelaunchWithEnvProxy({}), false);
+  assert.equal(
+    shouldRelaunchWithEnvProxy({
+      https_proxy: "http://127.0.0.1:7897",
+    }),
+    true
+  );
+  assert.equal(
+    shouldRelaunchWithEnvProxy({
+      https_proxy: "http://127.0.0.1:7897",
+      NODE_USE_ENV_PROXY: "1",
+    }),
+    false
+  );
+  assert.equal(
+    shouldRelaunchWithEnvProxy({
+      https_proxy: "http://127.0.0.1:7897",
+      ZENTAO_ENV_PROXY_REEXEC: "1",
+    }),
+    false
+  );
+});
+
 test("config store save/load roundtrip", () => {
   const env = { XDG_CONFIG_HOME: "/tmp/zentao-cli-test" };
   const filePath = getConfigPath({ env });
-  saveConfig({ zentaoUrl: "u", zentaoAccount: "a", zentaoPassword: "p" }, { env });
+  saveConfig({ zentaoUrl: "u", zentaoAccount: "a", zentaoPassword: "p", insecure: true }, { env });
   const loaded = loadConfig({ env });
   assert.equal(loaded.zentaoUrl, "u");
+  assert.equal(loaded.insecure, true);
   assert.equal(filePath.includes("zentao/config.toml"), true);
 });
 
@@ -104,6 +143,89 @@ test("ZentaoClient listProducts uses token then GET products", async () => {
     assert.ok(calls[0].url.endsWith("/api.php/v1/tokens"));
     assert.ok(calls[1].url.includes("/api.php/v1/products"));
     assert.equal(calls[1].options?.headers?.Token, "t_abc");
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test("createClientFromCli respects insecure flag from env and saved config", () => {
+  const env = {
+    XDG_CONFIG_HOME: `/tmp/zentao-cli-test-insecure-${process.pid}`,
+    ZENTAO_INSECURE: "true",
+  };
+
+  saveConfig(
+    {
+      zentaoUrl: "https://example.com/zentao",
+      zentaoAccount: "leo",
+      zentaoPassword: "pw",
+    },
+    { env }
+  );
+
+  const client = createClientFromCli({ argv: [], env });
+  assert.equal(client.insecure, true);
+
+  const clientWithOverride = createClientFromCli({
+    argv: ["--insecure=false"],
+    env,
+  });
+  assert.equal(clientWithOverride.insecure, false);
+});
+
+test("ZentaoClient insecure mode toggles NODE_TLS_REJECT_UNAUTHORIZED only during fetch", async () => {
+  const observed = [];
+  const originalFetch = globalThis.fetch;
+  const originalEnv = process.env.NODE_TLS_REJECT_UNAUTHORIZED;
+
+  globalThis.fetch = async () => {
+    observed.push(process.env.NODE_TLS_REJECT_UNAUTHORIZED ?? null);
+    return {
+      text: async () => JSON.stringify({ token: "t_insecure" }),
+    };
+  };
+
+  try {
+    delete process.env.NODE_TLS_REJECT_UNAUTHORIZED;
+    const client = new ZentaoClient({
+      baseUrl: "https://example.com/zentao",
+      account: "leo",
+      password: "pw",
+      insecure: true,
+    });
+
+    await client.ensureToken();
+    assert.deepEqual(observed, ["0"]);
+    assert.equal(process.env.NODE_TLS_REJECT_UNAUTHORIZED, undefined);
+  } finally {
+    globalThis.fetch = originalFetch;
+    if (originalEnv === undefined) {
+      delete process.env.NODE_TLS_REJECT_UNAUTHORIZED;
+    } else {
+      process.env.NODE_TLS_REJECT_UNAUTHORIZED = originalEnv;
+    }
+  }
+});
+
+test("ZentaoClient surfaces fetch cause details", async () => {
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = async () => {
+    const error = new TypeError("fetch failed");
+    error.cause = { code: "EAI_AGAIN" };
+    throw error;
+  };
+
+  try {
+    const client = new ZentaoClient({
+      baseUrl: "https://example.com/zentao",
+      account: "leo",
+      password: "pw",
+    });
+
+    await assert.rejects(
+      () => client.ensureToken(),
+      /Token request network failed: fetch failed: EAI_AGAIN/
+    );
   } finally {
     globalThis.fetch = originalFetch;
   }

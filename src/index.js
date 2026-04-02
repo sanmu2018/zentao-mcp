@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 import process from "node:process";
 import { extractCommand, hasHelpFlag } from "./cli/args.js";
+import { maybeRelaunchWithEnvProxy } from "./cli/env-proxy.js";
 import { printRootHelp } from "./cli/help.js";
 import { runSelfTest } from "./commands/selftest.js";
 import { runRelease } from "./commands/release.js";
@@ -15,6 +16,8 @@ import { runWhoami } from "./commands/whoami.js";
 
 const argv = process.argv.slice(2);
 const { command, argv: argvWithoutCommand } = extractCommand(argv);
+
+maybeRelaunchWithEnvProxy();
 
 function exitWithError(error) {
   const message = error?.message || String(error);
