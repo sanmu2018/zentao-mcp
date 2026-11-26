@@ -1,6 +1,6 @@
 ---
 name: zentao
-description: Use the zentao CLI to login and query ZenTao products and bugs. ZENTAO_URL usually includes /zentao.
+description: Use the zentao CLI to login, query ZenTao products/bugs, download bug screenshots, and resolve/close/comment bugs. ZENTAO_URL usually includes /zentao.
 homepage: https://www.npmjs.com/package/@sanmu2018/zentao-mcp
 metadata: {"openclaw":{"emoji":"🐞","install":[{"id":"node","kind":"node","package":"@sanmu2018/zentao-mcp","bins":["zentao"],"label":"Install zentao CLI (node)"}]}}
 ---
@@ -16,6 +16,9 @@ Use this skill when the user asks to:
 - list bugs for a product
 - view bug details
 - list the user's own bugs
+- comment / resolve / close / activate / confirm / assign bugs
+- download screenshots embedded in bug steps/comments (`--with-images`)
+- append notes into bug steps when history comment is unavailable
 
 ## Installation (recommended)
 
@@ -140,6 +143,38 @@ Get bug details:
 zentao bug get --id 1329
 ```
 
+When the bug has screenshots in 重现步骤 / comments, download them (needed to actually view images; plain `bug get` only returns HTML with relative `fileID` links):
+
+```bash
+zentao bug get --id 1329 --with-images
+zentao bug get --id 1329 --with-images --out-dir /tmp/bug-1329
+zentao bug file --id 1087 --out /tmp/shot.png
+```
+
+Then open the local `images[].path` files. Default cache is `~/.cache/zentao/files`.
+
+Add a history comment (preferred; uses session API because REST PUT comment is dropped on ZenTao 22.x):
+
+```bash
+zentao bug comment --id 1329 --comment "Verified on integration"
+```
+
+Resolve / close / activate / confirm / assign:
+
+```bash
+zentao bug resolve --id 1329 --resolution fixed --resolvedBuild trunk --comment "Fixed in gateway"
+zentao bug close --id 1329 --comment "Verified"
+zentao bug activate --id 1329 --comment "Reopened"
+zentao bug confirm --id 1329 --assignedTo leo
+zentao bug assign --id 1329 --assignedTo leo --comment "Please verify"
+```
+
+If you only need content in 重现步骤 (not history), append HTML steps:
+
+```bash
+zentao bug append-steps --id 1329 --html "<p>Agent note</p>" --marker "agent-note-1329"
+```
+
 List my bugs (include details):
 
 ```bash
@@ -151,4 +186,5 @@ Full JSON output:
 - `zentao products list --json`
 - `zentao bugs list --product 6 --json`
 - `zentao bug get --id 1329 --json`
+- `zentao bug comment --id 1329 --comment "..." --json`
 - `zentao bugs mine --include-details --json`

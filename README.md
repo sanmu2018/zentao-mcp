@@ -137,6 +137,38 @@ Get bug details:
 zentao bug get --id <id>
 ```
 
+Download inline screenshots / attachments referenced in steps or history (`fileID=...`):
+
+```bash
+zentao bug get --id <id> --with-images
+zentao bug get --id <id> --with-images --out-dir /tmp/bug-<id>
+zentao bug file --id <fileId> --out ./shot.png
+```
+
+Images are fetched via REST `GET /api.php/v1/files/:id` (Token auth). Default cache: `~/.cache/zentao/files`.
+
+Add a history comment (session API; REST PUT comment is ignored on ZenTao 22.x):
+
+```bash
+zentao bug comment --id <id> --comment "Fix notes"
+```
+
+Resolve / close / activate / confirm / assign:
+
+```bash
+zentao bug resolve --id <id> [--resolution fixed] [--resolvedBuild trunk] [--assignedTo account] [--comment text]
+zentao bug close --id <id> [--comment text]
+zentao bug activate --id <id> [--assignedTo account] [--comment text]
+zentao bug confirm --id <id> [--assignedTo account] [--comment text]
+zentao bug assign --id <id> --assignedTo <account> [--comment text]
+```
+
+Append HTML into the bug steps/repro field (visible in 重现步骤):
+
+```bash
+zentao bug append-steps --id <id> --html "<p>extra note</p>" [--marker unique-token]
+```
+
 List my bugs:
 
 ```bash

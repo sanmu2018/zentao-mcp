@@ -1,11 +1,19 @@
 import assert from "node:assert/strict";
+import fs from "node:fs";
 import process from "node:process";
 import { PassThrough } from "node:stream";
 import test from "node:test";
 
 import { extractCommand, parseCliArgs } from "../src/cli/args.js";
 import { shouldRelaunchWithEnvProxy } from "../src/cli/env-proxy.js";
-import { createClientFromCli, ZentaoClient } from "../src/zentao/client.js";
+import {
+  createClientFromCli,
+  ensureHtmlComment,
+  extractBugFileIds,
+  guessExtensionFromMagic,
+  parseContentDispositionFilename,
+  ZentaoClient,
+} from "../src/zentao/client.js";
 import { getConfigPath, loadConfig, saveConfig } from "../src/config/store.js";
 import { formatProductsSimple } from "../src/commands/products.js";
 import { formatBugsMineSimple, formatBugsSimple } from "../src/commands/bugs.js";
@@ -272,6 +280,212 @@ test("formatBugsMineSimple prints summary", () => {
   });
   assert.ok(out.includes("total\t2"));
   assert.ok(out.includes("1\tP1\t2\t10"));
+});
+
+test("ensureHtmlComment wraps plain text and keeps HTML", () => {
+  assert.equal(ensureHtmlComment("hello"), "<p>hello</p>");
+  assert.equal(ensureHtmlComment("a\nb"), "<p>a</p><p>b</p>");
+  assert.equal(ensureHtmlComment("<p>keep</p>"), "<p>keep</p>");
+  assert.equal(ensureHtmlComment("a < b"), "<p>a &lt; b</p>");
+});
+
+test("extractBugFileIds collects from steps, actions, and files", () => {
+  const ids = extractBugFileIds({
+    steps: '<img src="/index.php?m=file&f=read&t=png&fileID=1087" />',
+    files: [{ id: 99, title: "a.png" }],
+    actions: {
+      1: { comment: '<img src="fileID=55" />' },
+      2: { comment: "no image" },
+    },
+  });
+  assert.deepEqual(ids, [55, 99, 1087]);
+});
+
+test("parseContentDispositionFilename and magic extension", () => {
+  assert.equal(
+    parseContentDispositionFilename('attachment; filename="image.png";'),
+    "image.png"
+  );
+  assert.equal(guessExtensionFromMagic(Buffer.from([0x89, 0x50, 0x4e, 0x47])), ".png");
+  assert.equal(guessExtensionFromMagic(Buffer.from([0xff, 0xd8, 0xff, 0xe0])), ".jpg");
+});
+
+test("ZentaoClient downloadFile writes REST file bytes", async () => {
+  const originalFetch = globalThis.fetch;
+  const png = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0x00, 0x01]);
+  const outDir = `/tmp/zentao-cli-file-test-${process.pid}`;
+
+  globalThis.fetch = async (url, options) => {
+    if (String(url).endsWith("/api.php/v1/tokens")) {
+      return { text: async () => JSON.stringify({ token: "t_file" }) };
+    }
+    if (String(url).includes("/api.php/v1/files/1087")) {
+      assert.equal(options?.headers?.Token, "t_file");
+      return {
+        ok: true,
+        status: 200,
+        headers: {
+          get: (name) => {
+            if (name === "content-type") return "application/octet-stream";
+            if (name === "content-disposition") return 'attachment; filename="image.png";';
+            return null;
+          },
+        },
+        arrayBuffer: async () => png.buffer.slice(png.byteOffset, png.byteOffset + png.byteLength),
+      };
+    }
+    return { text: async () => JSON.stringify({ error: "unexpected" }), ok: false, status: 500 };
+  };
+
+  try {
+    const client = new ZentaoClient({
+      baseUrl: "https://example.com/zentao",
+      account: "leo",
+      password: "pw",
+    });
+    const result = await client.downloadFile({ id: 1087, outDir });
+    assert.equal(result.fileId, 1087);
+    assert.equal(result.filename, "image.png");
+    assert.equal(result.size, png.length);
+    assert.ok(result.path.includes(`${outDir}/1087-image.png`));
+    assert.deepEqual(fs.readFileSync(result.path), png);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test("ZentaoClient resolveBug posts to /bugs/:id/resolve", async () => {
+  const calls = [];
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = async (url, options) => {
+    calls.push({ url: String(url), options });
+    if (String(url).endsWith("/api.php/v1/tokens")) {
+      return { text: async () => JSON.stringify({ token: "t_resolve" }) };
+    }
+    if (String(url).includes("/api.php/v1/bugs/456/resolve")) {
+      return {
+        text: async () =>
+          JSON.stringify({ id: 456, status: "resolved", resolution: "fixed" }),
+      };
+    }
+    return { text: async () => JSON.stringify({ error: "unexpected" }) };
+  };
+
+  try {
+    const client = new ZentaoClient({
+      baseUrl: "https://example.com/zentao",
+      account: "leo",
+      password: "pw",
+    });
+    const result = await client.resolveBug({
+      id: 456,
+      resolution: "fixed",
+      resolvedBuild: "trunk",
+      comment: "done",
+    });
+    assert.equal(result.status, 1);
+    assert.equal(result.result?.status, "resolved");
+    assert.equal(calls[1].options?.method, "POST");
+    assert.deepEqual(JSON.parse(calls[1].options?.body), {
+      resolution: "fixed",
+      resolvedBuild: "trunk",
+      comment: "<p>done</p>",
+    });
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test("ZentaoClient commentBug uses GET-mode session login then comment", async () => {
+  const calls = [];
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = async (url, options) => {
+    const href = String(url);
+    calls.push({ url: href, options });
+    if (href.includes("m=api&f=getSessionID")) {
+      return {
+        text: async () =>
+          JSON.stringify({
+            status: "success",
+            data: JSON.stringify({ sessionName: "zentaosid", sessionID: "sid123" }),
+          }),
+      };
+    }
+    if (href.includes("m=user&f=login")) {
+      return {
+        text: async () =>
+          JSON.stringify({
+            status: "success",
+            user: { account: "leo", id: 1 },
+          }),
+      };
+    }
+    if (href.includes("m=action&f=comment")) {
+      return {
+        text: async () =>
+          "<html><script>if(parent !== window) parent.location.reload(true);</script></html>",
+      };
+    }
+    return { text: async () => JSON.stringify({ error: "unexpected" }) };
+  };
+
+  try {
+    const client = new ZentaoClient({
+      baseUrl: "https://example.com/zentao",
+      account: "leo",
+      password: "pw",
+    });
+    const result = await client.commentBug({ id: 456, comment: "hello note" });
+    assert.equal(result.status, 1);
+    assert.equal(result.result?.id, 456);
+    assert.equal(result.result?.comment, "<p>hello note</p>");
+    assert.equal(calls.length, 3);
+    assert.ok(calls[2].url.includes("m=action&f=comment"));
+    assert.equal(calls[2].options?.headers?.Cookie, "zentaosid=sid123");
+    assert.equal(calls[2].options?.body, "comment=%3Cp%3Ehello+note%3C%2Fp%3E");
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test("ZentaoClient appendBugSteps concatenates steps via PUT", async () => {
+  const calls = [];
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = async (url, options) => {
+    calls.push({ url: String(url), options });
+    if (String(url).endsWith("/api.php/v1/tokens")) {
+      return { text: async () => JSON.stringify({ token: "t_steps" }) };
+    }
+    if (String(url).includes("/api.php/v1/bugs/9") && (!options || options.method === "GET" || !options.method)) {
+      return {
+        text: async () => JSON.stringify({ id: 9, title: "B", steps: "<p>old</p>" }),
+      };
+    }
+    if (String(url).includes("/api.php/v1/bugs/9") && options?.method === "PUT") {
+      return {
+        text: async () =>
+          JSON.stringify({ id: 9, title: "B", steps: "<p>old</p><p>new</p>" }),
+      };
+    }
+    return { text: async () => JSON.stringify({ error: "unexpected" }) };
+  };
+
+  try {
+    const client = new ZentaoClient({
+      baseUrl: "https://example.com/zentao",
+      account: "leo",
+      password: "pw",
+    });
+    const result = await client.appendBugSteps({ id: 9, html: "<p>new</p>" });
+    assert.equal(result.status, 1);
+    const put = calls.find((c) => c.options?.method === "PUT");
+    assert.ok(put);
+    assert.deepEqual(JSON.parse(put.options.body), {
+      steps: "<p>old</p><p>new</p>",
+    });
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
 });
 
 test("ZentaoClient updateTask uses PUT task endpoint with typed payload", async () => {

@@ -15,7 +15,11 @@ export function printRootHelp() {
   process.stdout.write(`  zentao tasks start --id <taskId> [--consumed N] [--left N]\n`);
   process.stdout.write(`  zentao tasks finish --id <taskId> [--currentConsumed N]\n`);
   process.stdout.write(`  zentao bugs list --product <id> [--page N] [--limit N] [--json]\n`);
-  process.stdout.write(`  zentao bug get --id <bugId> [--json]\n`);
+  process.stdout.write(`  zentao bug get --id <bugId> [--with-images] [--out-dir <dir>] [--json]\n`);
+  process.stdout.write(`  zentao bug file --id <fileId> [--out <path>] [--json]\n`);
+  process.stdout.write(`  zentao bug comment --id <bugId> --comment <text> [--json]\n`);
+  process.stdout.write(`  zentao bug resolve --id <bugId> [--resolution fixed] [--resolvedBuild trunk] [--comment text] [--json]\n`);
+  process.stdout.write(`  zentao bug close|activate|confirm|assign|append-steps ...\n`);
   process.stdout.write(`  zentao bugs mine [--scope ...] [--status ...] [--include-details] [--json]\n`);
   process.stdout.write(`  zentao self-test [--expected N]\n`);
   process.stdout.write(`  zentao release [patch|minor|major] [--dry-run] [--yes]\n\n`);
